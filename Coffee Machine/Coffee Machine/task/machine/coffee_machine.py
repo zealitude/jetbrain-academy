@@ -14,14 +14,14 @@ def showStatus():
     print(cups, " of disposable cups")
     print(money, " of money")
 
-def makeCoffee(waterNeed, milkNeed, BeansNeed, MoneySpend):
+def makeCoffee(waterNeed, milkNeed, BeansNeed, MoneySpend): 
     global water, milk, beans, cups, money
 
     enoughRes = True
     if  water < waterNeed:
         print("Sorry, not enough water!")
         enoughRes = False
-
+    
     if  milk < milkNeed:
         print("Sorry, not enough milk!")
         enoughRes = False
@@ -41,7 +41,7 @@ def makeCoffee(waterNeed, milkNeed, BeansNeed, MoneySpend):
         money += MoneySpend
         cups -= 1
         print("I have enough resources, making you a coffee!")
-
+    
 while True:
     action = input("Write action (buy, fill, take, remaining, exit):")
 
@@ -52,7 +52,7 @@ while True:
 
         #  For one espresso, the coffee machine needs 250 ml of water and 16 g of coffee beans. It costs $4.
         #  For a latte, the coffee machine needs 350 ml of water, 75 ml of milk, and 20 g of coffee beans. It costs $7.
-        #  And for a cappuccino, the coffee machine needs 200 ml of water, 100 ml of milk, and 12 g of coffee. It costs $6.
+        #  And for a cappuccino, the coffee machine needs 200 ml of water, 100 ml of milk, and 12 g of coffee. It costs $6.    
         if option == "back":
             continue
         elif option == "1":

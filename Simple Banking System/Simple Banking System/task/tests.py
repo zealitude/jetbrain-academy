@@ -103,6 +103,7 @@ def test_output_after_wrong_card_number(output: str, value_to_return):
             'There is no \'wrong\' in your output after signing in with correct credentials')
     return value_to_return
 
+
 def is_passed_luhn_algorithm(number):
     luhn = [int(char) for char in str(number)]
     for i, num in enumerate(luhn):
