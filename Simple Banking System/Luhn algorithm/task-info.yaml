@@ -1,0 +1,269 @@
+type: edu
+files:
+- name: tests.py
+  visible: false
+  text: |
+    from hstest.exceptions import WrongAnswerException
+    from hstest.test_case import CheckResult
+    from hstest.stage_test import StageTest
+    from hstest.test_case import TestCase
+    import random
+    import re
+
+    card_number = ''
+    pin = ''
+    are_all_inputs_read = False
+
+
+    def get_credentials(output: str):
+        number = re.findall(r'400000\d{10}', output, re.MULTILINE)
+        if not number:
+            raise WrongAnswerException('You are printing the card number incorrectly. '
+                                       'The card number should look like in the example: 400000DDDDDDDDDD, where D is a digit.')
+
+        PIN = re.findall(r'^\d{4}$', output, re.MULTILINE)
+        if not PIN:
+            raise WrongAnswerException('You are printing the card PIN incorrectly. '
+                                       'The PIN should look like in the example: DDDD, where D is a digit.')
+
+        return number[0], PIN[0]
+
+
+    def test_card_generation(output: str, value_to_return):
+        global card_number, pin, are_all_inputs_read
+        are_all_inputs_read = False
+        credentials = get_credentials(output)
+        card_number = credentials[0]
+        pin = credentials[1]
+        return value_to_return
+
+
+    def test_difference_between_generations(output: str, value_to_return):
+        global card_number, pin, are_all_inputs_read
+        credentials = get_credentials(output)
+        another_card_number = credentials[0]
+
+        if another_card_number == card_number:
+            return CheckResult.wrong('Your program generates two identical card numbers!')
+        are_all_inputs_read = True
+
+        return value_to_return
+
+
+    def test_sign_in_with_correct_credentials(output: str, value_to_return):
+        global card_number, pin
+        return '{}\n{}'.format(card_number, pin)
+
+
+    def test_output_after_correct_sign_in(output: str, value_to_return):
+        global are_all_inputs_read
+        are_all_inputs_read = True
+        if 'successfully' not in output.lower():
+            return CheckResult.wrong(
+                'There is no \'successfully\' in your output after signing in with correct credentials')
+        return value_to_return
+
+
+    def test_sign_in_with_wrong_pin(output: str, value_to_return):
+        global card_number, pin
+        wrong_pin = pin
+        while pin == wrong_pin:
+            wrong_pin = ''.join(list(map(str, random.sample(range(1, 10), 4))))
+        return '{}\n{}\n'.format(card_number, wrong_pin)
+
+
+    def test_output_after_wrong_pin(output: str, value_to_return):
+        global are_all_inputs_read
+        are_all_inputs_read = True
+        if 'wrong' not in output.lower():
+            return CheckResult.wrong(
+                'There is no \'wrong\' in your output after signing in with correct credentials')
+        return value_to_return
+
+
+    def test_sign_in_with_wrong_card_number(output: str, value_to_return):
+        global card_number, pin
+        wrong_card_number = card_number
+        while wrong_card_number == card_number:
+            temp = [4, 0, 0, 0, 0, 0]
+            for _ in range(10):
+                temp.append(random.randint(1, 9))
+            wrong_card_number = ''.join(list(map(str, temp)))
+        return '{}\n{}\n'.format(wrong_card_number, pin)
+
+
+    def test_output_after_wrong_card_number(output: str, value_to_return):
+        global are_all_inputs_read
+        are_all_inputs_read = True
+        if 'wrong' not in output.lower():
+            return CheckResult.wrong(
+                'There is no \'wrong\' in your output after signing in with correct credentials')
+        return value_to_return
+
+
+    def is_passed_luhn_algorithm(number):
+        luhn = [int(char) for char in str(number)]
+        for i, num in enumerate(luhn):
+            if (i + 1) % 2 == 0:
+                continue
+            temp = num * 2
+            luhn[i] = temp if temp < 10 else temp - 9
+        return sum(luhn) % 10 == 0
+
+
+    def test_luhn_algorithm(output: str, value_to_return):
+        global are_all_inputs_read
+
+        numbers = re.findall(r'400000\d{10}', output, re.MULTILINE)
+
+        for number in numbers:
+            if not is_passed_luhn_algorithm(number):
+                return CheckResult.wrong('The card number \'{}\' doesn\'t pass luhn algorithm!'.format(number))
+
+        are_all_inputs_read = True
+        return '0'
+
+
+    class BankingSystem(StageTest):
+
+        def generate(self):
+            return [
+                TestCase(
+                    stdin=[
+                        '1',
+                        lambda output: test_card_generation(output, '1'),
+                        lambda output: test_difference_between_generations(output, '0')
+                    ]),
+                TestCase(
+                    stdin=[
+                        '1',
+                        lambda output: test_card_generation(output, '2'),
+                        lambda output: test_sign_in_with_correct_credentials(output, None),
+                        lambda output: test_output_after_correct_sign_in(output, '0')
+                    ]),
+                TestCase(
+                    stdin=[
+                        '1',
+                        lambda output: test_card_generation(output, '2'),
+                        lambda output: test_sign_in_with_wrong_pin(output, None),
+                        lambda output: test_output_after_wrong_pin(output, '0')
+                    ]),
+                TestCase(
+                    stdin=[
+                        '1',
+                        lambda output: test_card_generation(output, '2'),
+                        lambda output: test_sign_in_with_wrong_card_number(output, None),
+                        lambda output: test_output_after_wrong_card_number(output, '0')
+                    ]),
+                TestCase(
+                    stdin=[
+                        '1\n1\n1\n1\n1\n1\n1\n1',
+                        lambda output: test_luhn_algorithm(output, '0'),
+                    ])
+            ]
+
+        def check(self, reply: str, attach) -> CheckResult:
+            if are_all_inputs_read:
+                return CheckResult.correct()
+            else:
+                return CheckResult.wrong('You didn\'t read all inputs!')
+
+
+    if __name__ == '__main__':
+        BankingSystem('banking.banking').run_tests()
+  learner_created: false
+- name: banking/banking.py
+  visible: true
+  text: |2
+
+    import random
+
+    cardDatabase = {}
+
+    def checkBalance(cardNum):
+        print(f"Balance: {cardDatabase[cardNum]['BALANCE']}")
+        print()
+
+    def loginAccount():
+        cardNum = input("Enter your card number:")
+        pinCode = input("Enter your PIN:")
+
+        if cardNum not in cardDatabase or cardDatabase[cardNum]["PINCODE"] != pinCode:
+            print("Wrong card number or PIN!")
+            return None
+        else:
+            print("You have successfully logged in!")
+            return cardNum
+
+    def randomSequenceGenerateor(len, possibleChoices):
+        seq = ""
+        for _ in range(len):
+            seq += random.choice(possibleChoices)
+
+        return seq
+
+    def generateNewCardNumber():
+        return "400000" + randomSequenceGenerateor(10, "0123456789")
+
+    def generatePinCode():
+        return randomSequenceGenerateor(4, "0123456789")
+
+    def createAccount():
+        while True:
+            cardNum = generateNewCardNumber()
+            if cardNum not in cardDatabase:
+                pinCode = generatePinCode()
+                cardDatabase[cardNum] = {
+                                            "PINCODE": pinCode,
+                                            "BALANCE": 0
+                                        }
+                print("Your card has been created")
+                print("Your card number:")
+                print(cardNum)
+                print("Your card PIN:")
+                print(pinCode)
+                print()
+                break
+
+    def printMenu():
+        print("""1. Create an account
+              2. Log into account
+              0. Exit""")
+
+    def main():
+
+        loginedCarNum = None
+
+        while True:
+            if not loginedCarNum:
+                printMenu()
+                option = input()
+
+                if option == "1":
+                    createAccount()
+                elif option == "2":
+                    loginedCarNum = loginAccount()
+                elif option == "0":
+                    break
+            else:
+                print("""1. Balance
+                2. Log out
+                0. Exit""")
+                option = input()
+
+                if option == "1":
+                    checkBalance(loginedCarNum)
+                elif option == "2":
+                    print("You have successfully logged out!")
+                    loginedCarNum = None
+                elif option == "0":
+                    break
+
+        print("\nBye!")
+
+    if __name__ == '__main__':
+        main()
+  learner_created: false
+feedback_link: https://hyperskill.org/projects/109/stages/592/implement
+status: Solved
+record: 1
